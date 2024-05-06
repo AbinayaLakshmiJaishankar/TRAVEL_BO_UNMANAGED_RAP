@@ -1,0 +1,23 @@
+@EndUserText.label: 'Consumption view for travel'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@Metadata.allowExtensions: true
+define root view entity zc_travel_bo_unmanaged
+provider contract transactional_query
+  as projection on ZI_TRAVEL_BO_UNMANAGED
+{
+  key TravelId,
+  AgencyId,
+  CustomerId,
+  BeginDate,
+  EndDate,
+  BookingFee,
+  TotalPrice,
+  CurrencyCode,
+  Description,
+  Status,
+  Createdby,
+  Createdat,
+  Lastchangedby,
+  Lastchangedat,
+  _Booking : redirected to composition child zc_booking_bo_unmanaged
+}

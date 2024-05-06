@@ -1,0 +1,18 @@
+@EndUserText.label: 'Consumption view for booking'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@Metadata.allowExtensions: true
+define view entity zc_booking_bo_unmanaged
+  as projection on zi_booking_bo_unmanaged
+{
+  key TravelId,
+  key BookingId,
+      BookingDate,
+      CustomerId,
+      CarrierId,
+      ConnectionId,
+      FlightDate,
+      FlightPrice,
+      CurrencyCode,
+      /* Associations */
+      _Travel : redirected to parent zc_travel_bo_unmanaged
+}

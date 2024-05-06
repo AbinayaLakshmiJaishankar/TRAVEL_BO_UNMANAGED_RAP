@@ -1,0 +1,260 @@
+CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS get_instance_authorizations FOR INSTANCE AUTHORIZATION
+      IMPORTING keys REQUEST requested_authorizations FOR Travel RESULT result.
+
+    METHODS create FOR MODIFY
+      IMPORTING entities FOR CREATE Travel.
+
+    METHODS update FOR MODIFY
+      IMPORTING entities FOR UPDATE Travel.
+
+    METHODS delete FOR MODIFY
+      IMPORTING keys FOR DELETE Travel.
+
+    METHODS read FOR READ
+      IMPORTING keys FOR READ Travel RESULT result.
+
+    METHODS lock FOR LOCK
+      IMPORTING keys FOR LOCK Travel.
+
+    METHODS rba_Booking FOR READ
+      IMPORTING keys_rba FOR READ Travel\_Booking FULL result_requested RESULT result LINK association_links.
+
+    METHODS cba_Booking FOR MODIFY
+      IMPORTING entities_cba FOR CREATE Travel\_Booking.
+    METHODS earlynumbering_cba_Booking FOR NUMBERING
+      IMPORTING entities FOR CREATE Travel\_Booking.
+
+    METHODS earlynumbering_create FOR NUMBERING
+      IMPORTING entities FOR CREATE Travel.
+
+
+ENDCLASS.
+
+CLASS lhc_Travel IMPLEMENTATION.
+
+  METHOD get_instance_authorizations.
+  ENDMETHOD.
+
+  METHOD create.
+    " Prepare and store the data in the form of internal table  into the API class
+    " Class - will be Singleton
+    DATA(lo_api) = zcl_travel_api=>get_instance( ). "Get instance from api class
+
+    "Create a travel in buffer.
+    lo_api->create(
+      EXPORTING
+        entities = entities
+      CHANGING
+        mapped   = mapped
+        failed   = failed
+        reported = reported
+    ).
+
+  ENDMETHOD.
+
+  METHOD update.
+    zcl_travel_api=>get_instance( )->update(
+      EXPORTING
+        entities = entities
+      CHANGING
+        mapped   = mapped
+        failed   = failed
+        reported = reported
+    ).
+  ENDMETHOD.
+
+  METHOD delete.
+  ENDMETHOD.
+
+  METHOD read.
+    zcl_travel_api=>get_instance(  )->read(
+      EXPORTING
+        keys     = keys
+      CHANGING
+        result   = result
+        failed   = failed
+        reported = reported
+    ).
+
+  ENDMETHOD.
+
+  METHOD lock.
+  ENDMETHOD.
+
+  METHOD rba_Booking.
+  ENDMETHOD.
+
+  METHOD cba_Booking.
+    zcl_travel_api=>get_instance(  )->cba_booking(
+      EXPORTING
+        entities_cba = entities_cba
+      CHANGING
+        mapped       = mapped
+        failed       = failed
+        reported     = reported
+    ).
+
+  ENDMETHOD.
+
+  METHOD earlynumbering_create.
+    " Pass the info from entities to mapped - if travel Id already exist
+    LOOP AT entities INTO DATA(ls_entity) WHERE TravelId IS NOT INITIAL.
+      APPEND CORRESPONDING #( ls_entity ) TO mapped-travel.
+    ENDLOOP.
+
+    " Create a table where table id determination is required
+    DATA(entities_travel) = entities.
+    DELETE entities_travel WHERE TravelId IS NOT INITIAL.
+
+    "Determine the logic to get the next travel id
+    IF entities_travel IS NOT INITIAL.
+
+      SELECT MAX( travel_id )
+      FROM /dmo/travel
+      INTO @DATA(lv_new_travel_id).
+
+      lv_new_travel_id += 1. " Increment by 1
+
+      " Fill the mapped info from the entities -->importing parameter
+      mapped-travel = VALUE #(
+                        FOR ls_entities IN entities
+                        (
+                         %cid = ls_entities-%cid
+                         %is_draft = ls_entities-%is_draft
+                         travelid = lv_new_travel_id
+                        )
+                      ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD earlynumbering_cba_Booking.
+
+    DATA : lv_max_booking_id TYPE /dmo/booking_id.
+*** Entity manipulation language
+*** language that helps to manipulate the data dynamically
+*** Click on the F2 button on method name to check the importing, changing and exporting parameters used in the method
+*** Operation create / update / delete / read / execute an action
+
+    " Read the booking entity values already in system (even in draft table)
+    READ ENTITIES OF zi_travel_bo_unmanaged IN LOCAL MODE
+    ENTITY Travel BY \_Booking " read by association
+    FROM CORRESPONDING #( entities )
+    LINK DATA(lt_booking).
+
+    "get the max booking id for all the travel
+    LOOP AT entities ASSIGNING FIELD-SYMBOL(<lfs_travel_grp>) GROUP BY <lfs_travel_grp>-TravelId.
+
+      " Get highest booking id " for eml read
+      " Reduce operator used to sum the value in a internal table without loop, to avoid loop inside loop
+      lv_max_booking_id = REDUCE #(     "Purpose of reduce is to derive the conclusion of the data
+                                INIT max = CONV /dmo/booking_id( '0' ) " Init. the value
+                                " Iterate on all the booking details
+                                FOR ls_booking IN lt_booking USING KEY entity WHERE ( source-TravelId = <lfs_travel_grp>-TravelId )
+                                NEXT max = COND /dmo/booking_id( WHEN ls_booking-target-BookingId > max THEN ls_booking-target-BookingId ELSE max )
+                                  ).
+
+      "Get the highest booking data from the importing data
+      lv_max_booking_id = REDUCE #(
+                                     INIT max = lv_max_booking_id
+                                     FOR entity IN entities USING KEY entity WHERE ( TravelId = <lfs_travel_grp>-TravelId ) "Parent
+                                     FOR target IN entity-%target " Child
+                                     NEXT max = COND /dmo/booking_id( WHEN target-BookingId > max THEN target-BookingId ELSE max ) "generate the particular type
+                                   ).
+    ENDLOOP.
+
+        "Increment booking id
+    lv_max_booking_id += 10.
+
+    " Filling mapped parameter
+    mapped-booking = VALUE #(
+                             FOR ls_travel_info IN entities
+                                 FOR ls_booking_info IN ls_travel_info-%target
+                                 (
+                                        %cid = ls_booking_info-%cid
+                                        %is_draft = ls_booking_info-%is_draft
+                                        travelid = ls_booking_info-travelid
+                                        BookingId = COND #( WHEN ls_booking_info-BookingId IS INITIAL THEN lv_max_booking_id ELSE ls_booking_info-BookingId )
+                                )
+                            ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS lhc_Booking DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS update FOR MODIFY
+      IMPORTING entities FOR UPDATE Booking.
+
+    METHODS delete FOR MODIFY
+      IMPORTING keys FOR DELETE Booking.
+
+    METHODS read FOR READ
+      IMPORTING keys FOR READ Booking RESULT result.
+
+    METHODS rba_Travel FOR READ
+      IMPORTING keys_rba FOR READ Booking\_Travel FULL result_requested RESULT result LINK association_links.
+
+ENDCLASS.
+
+CLASS lhc_Booking IMPLEMENTATION.
+
+  METHOD update.
+  ENDMETHOD.
+
+  METHOD delete.
+  ENDMETHOD.
+
+  METHOD read.
+  ENDMETHOD.
+
+  METHOD rba_Travel.
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS lsc_ZI_TRAVEL_BO_UNMANAGED DEFINITION INHERITING FROM cl_abap_behavior_saver.
+  PROTECTED SECTION.
+
+    METHODS finalize REDEFINITION.
+
+    METHODS check_before_save REDEFINITION.
+
+    METHODS save REDEFINITION.
+
+    METHODS cleanup REDEFINITION.
+
+    METHODS cleanup_finalize REDEFINITION.
+
+ENDCLASS.
+
+CLASS lsc_ZI_TRAVEL_BO_UNMANAGED IMPLEMENTATION.
+
+  METHOD finalize.
+  ENDMETHOD.
+
+  METHOD check_before_save.
+  ENDMETHOD.
+
+  METHOD save.
+    " Purpose of this method is to save the data into the database
+
+    DATA(lo_api) = zcl_travel_api=>get_instance( ). "Get instance from api class
+
+    lo_api->save(
+      CHANGING
+        reported = reported
+    ).
+
+  ENDMETHOD.
+
+  METHOD cleanup.
+  ENDMETHOD.
+
+  METHOD cleanup_finalize.
+  ENDMETHOD.
+
+ENDCLASS.

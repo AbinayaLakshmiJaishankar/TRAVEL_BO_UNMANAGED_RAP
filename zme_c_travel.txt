@@ -1,0 +1,107 @@
+@Metadata.layer: #CORE
+@UI: {
+
+// Header Details in object page
+  headerInfo: {
+    typeName: 'Travel Detail Report',
+    typeNamePlural: 'Travel Details Report',
+    title: {
+           type : #STANDARD,
+           value : 'TravelId'
+    },
+// Title in next page with agency id
+    description : {
+           type : #STANDARD,
+           value : 'AgencyId'
+   }
+  }
+}
+annotate view zc_travel_bo_unmanaged with
+{
+  // Facet page
+  @UI.facet: [ {
+      id: 'idTravelInfo',
+      type: #COLLECTION,
+      label: 'Travel Details',
+      position: 10
+    },
+
+  // For grouping fields horizontally
+    {
+      id: 'idBasicDtl',
+      type: #IDENTIFICATION_REFERENCE,
+      label: 'Basic Details',
+      position : 10,
+      parentId: 'idTravelInfo',
+      targetQualifier: 'qBasicDetails' //specify for the fields which we need to have in the particular grouping
+    },
+
+    {
+    id: 'idTravelShd',
+      type: #FIELDGROUP_REFERENCE,
+      label: 'Travel Schedule',
+      position : 20,
+      parentId: 'idTravelInfo',
+      targetQualifier: 'qTravelShd'
+    },
+    {
+    id: 'idTravelPrice',
+      type: #FIELDGROUP_REFERENCE,
+      label: 'Travel Price',
+      position : 30,
+      parentId: 'idTravelInfo',
+      targetQualifier: 'qTravelPrice'
+    },
+    {
+      id: 'idBookingInfo',
+      type: #LINEITEM_REFERENCE,
+      label: ' Booking Details',
+      position: 20,
+      targetElement: '_Booking'
+    }
+    ]
+
+  @UI.identification: [{ position: 10 , qualifier: 'qBasicDetails'}] // Shows the details in the facet page
+  @UI.lineItem: [{ position: 10}] // Line item details in object page
+  @UI.selectionField: [{ position: 10 }] //Selection screen field similar to se38
+  TravelId;
+
+  @UI.identification: [{ position: 20 , qualifier: 'qBasicDetails'}]
+  @UI.lineItem: [{ position: 20 }]
+  AgencyId;
+
+  @UI.identification: [{ position: 30 , qualifier: 'qBasicDetails'}]
+  @UI.lineItem: [{ position: 30 }]
+  CustomerId;
+
+  @UI.identification: [{ position: 40 , qualifier: 'qBasicDetails'}]
+  @UI.lineItem: [{ position: 90 }]
+  Description;
+
+  @UI.lineItem: [{ position: 40 }]
+  @UI.fieldGroup: [{ position: 10 , qualifier: 'qTravelShd'}]
+  @UI.selectionField: [{ position: 20 }]
+  BeginDate;
+
+  @UI.lineItem: [{ position: 50 }]
+  @UI.fieldGroup: [{ position: 20 , qualifier: 'qTravelShd'}]
+  @UI.selectionField: [{ position: 30 }]
+  EndDate;
+
+  @UI.fieldGroup: [{ position: 10 , qualifier: 'qTravelPrice'}]
+  @UI.lineItem: [{ position: 60 }]
+  BookingFee;
+
+  @UI.fieldGroup: [{ position: 20 , qualifier: 'qTravelPrice'}]
+  @UI.lineItem: [{ position: 70 }]
+  TotalPrice;
+
+  @UI.fieldGroup: [{ position: 30 , qualifier: 'qTravelPrice'}]
+  @UI.lineItem: [{ position: 80 }]
+  CurrencyCode;
+
+  @UI.fieldGroup: [{ position: 40 , qualifier: 'qTravelPrice'}]
+  @UI.lineItem: [{ position: 100 }]
+  Status;
+
+}

@@ -1,0 +1,162 @@
+CLASS zcl_travel_api DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+
+    "Types declaration
+    TYPES: tt_create_travel   TYPE TABLE FOR CREATE zi_travel_bo_unmanaged\\Travel,
+           tt_mapped_travel   TYPE RESPONSE FOR MAPPED EARLY zi_travel_bo_unmanaged,
+           tt_failed_travel   TYPE RESPONSE FOR FAILED EARLY zi_travel_bo_unmanaged,
+           tt_reported_travel TYPE RESPONSE FOR REPORTED EARLY zi_travel_bo_unmanaged,
+
+           tt_save_travel     TYPE RESPONSE FOR REPORTED LATE zi_travel_bo_unmanaged,
+
+           tt_read_travel     TYPE TABLE FOR READ IMPORT zi_travel_bo_unmanaged\\travel,
+           tt_result_travel   TYPE TABLE FOR READ RESULT zi_travel_bo_unmanaged\\travel,
+
+           tt_update_travel   TYPE TABLE FOR UPDATE zi_travel_bo_unmanaged\\travel,
+
+           tt_cba_booking     TYPE TABLE FOR CREATE zi_travel_bo_unmanaged\\travel\_booking.
+
+
+
+    " Static method to create instance of class
+    CLASS-METHODS:     get_instance RETURNING VALUE(ro_instance) TYPE REF TO zcl_travel_api.
+
+    "Methods for all the travel app operations
+    METHODS:  create
+      IMPORTING entities TYPE tt_create_travel
+      CHANGING  mapped   TYPE tt_mapped_travel
+                failed   TYPE tt_failed_travel
+                reported TYPE tt_reported_travel,
+      save
+        CHANGING reported TYPE tt_save_travel,
+      read
+        IMPORTING keys     TYPE tt_read_travel
+        CHANGING  result   TYPE tt_result_travel
+                  failed   TYPE tt_failed_travel
+                  reported TYPE tt_reported_travel,
+      update
+        IMPORTING entities TYPE tt_update_travel
+        CHANGING  mapped   TYPE tt_mapped_travel
+                  failed   TYPE tt_failed_travel
+                  reported TYPE tt_reported_travel,
+
+      cba_booking
+        IMPORTING entities_cba TYPE tt_cba_booking
+        CHANGING  mapped       TYPE tt_mapped_travel
+                  failed       TYPE tt_failed_travel
+                  reported     TYPE tt_reported_travel.
+
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+    " Data define for instance of class since it is a singleton class we need to specify in the private section
+    CLASS-DATA: mo_instance TYPE REF TO zcl_travel_api.
+    DATA: gt_travel  TYPE TABLE OF /dmo/travel,
+          gt_booking TYPE TABLE OF /dmo/booking.
+ENDCLASS.
+
+
+
+CLASS zcl_travel_api IMPLEMENTATION.
+  METHOD get_instance.
+
+    " Create an instance if does not exist or return the existing instance.
+    mo_instance = COND #( WHEN mo_instance IS BOUND THEN mo_instance
+                          ELSE NEW #(  ) ).
+    ro_instance = mo_instance.
+
+  ENDMETHOD.
+
+  METHOD create.
+
+    " Store the data in instance global variable.
+    gt_travel = CORRESPONDING #( entities MAPPING FROM ENTITY ).
+
+    " Fill the mandatory parameter
+    mapped = VALUE #(
+                       travel = VALUE #(
+                                            FOR ls_entities IN entities
+                                            (
+                                              %cid = ls_entities-%cid
+                                              %is_draft = ls_entities-%is_draft
+                                              TravelId = ls_entities-TravelId
+                                            )
+                                        )
+
+                    ).
+
+  ENDMETHOD.
+
+  METHOD save.
+    "create
+    IF gt_travel IS NOT INITIAL.
+      MODIFY /dmo/travel FROM TABLE @gt_travel.
+    ENDIF.
+
+    "create by cba
+    IF gt_booking IS NOT INITIAL.
+      MODIFY /dmo/booking FROM TABLE @gt_booking.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD read.
+
+    "Two ways to read
+    "1) Pass the key param in the result and the system will automatically read the remaining stuffs from cds view
+    result = CORRESPONDING #( keys ). """"" mostly used
+    "2) Determine the result data based on keys and tweak it according to business requirement.
+
+  ENDMETHOD.
+
+  METHOD update.
+
+    " Store the data in instance global variable.
+    " if no draft then update is handled with put ----> found in the inspect in ui
+    gt_travel = CORRESPONDING #( entities MAPPING FROM ENTITY ). " draft based update creates a post call sequentially on prepare and activate
+
+  ENDMETHOD.
+
+  METHOD cba_booking.
+
+    " Populate booking info
+    gt_booking = VALUE #(
+                          FOR ls_entities_cba IN entities_cba "First loop for parent travel
+                          FOR ls_booking IN ls_entities_cba-%target " Second loop match with child booking
+                          LET
+                             ls_m_booking = CORRESPONDING /dmo/booking( ls_booking MAPPING FROM ENTITY )   " values mapped in behavior def of the booking
+                          IN
+                          (
+                               ls_m_booking
+                          )
+                        ).
+
+    " Fill the mapped info
+    mapped = VALUE #(
+                         booking = VALUE #(
+                                             " Iterate on entities_cba
+                                             FOR i = 1 WHILE i <= lines( entities_cba )
+                                             LET
+                                             lt_booking = VALUE #( entities_cba[ i ]-%target OPTIONAL )
+                                             IN
+                                             FOR j = 1 WHILE j <= lines( lt_booking )
+                                             LET
+                                             ls_curr_booking = VALUE #( lt_booking[ j ] OPTIONAL )
+                                             IN
+                                             (
+                                               %cid = ls_curr_booking-%cid                                              
+                                               %key = ls_curr_booking-%key
+                                               TravelId = ls_curr_booking-TravelId
+                                               BookingId = ls_curr_booking-BookingId
+                                             )
+
+                                          )
+                     ).
+
+  ENDMETHOD.
+
+ENDCLASS.

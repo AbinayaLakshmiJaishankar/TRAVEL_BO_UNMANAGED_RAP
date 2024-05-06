@@ -1,0 +1,57 @@
+@Metadata.layer: #CORE
+@UI: {
+// Header Details in object page
+  headerInfo: {
+    typeName: 'Booking Detail Report',
+    typeNamePlural: 'Booking Details Report',
+    title: {
+           type : #STANDARD,
+           value : 'TravelId'
+    }
+}
+}
+annotate view zc_booking_bo_unmanaged with
+{
+  @UI.facet: [ {
+      id: 'BookingInfo',
+      type: #IDENTIFICATION_REFERENCE,
+      label: 'Travel Details',
+      position: 10
+    }]
+    
+  @UI.lineItem: [{ position: 10 }]
+  @UI.identification: [{ position: 10 }]
+  TravelId;
+
+  @UI.lineItem: [{ position: 20 }]
+  @UI.identification: [{ position: 20 }]
+  BookingId;
+
+  @UI.lineItem: [{ position: 30 }]
+  @UI.identification: [{ position: 30 }]
+  BookingDate;
+
+  @UI.lineItem: [{ position: 40 }]
+  @UI.identification: [{ position: 40 }]
+  CustomerId;
+
+  @UI.lineItem: [{ position: 50 }]
+  @UI.identification: [{ position: 50 }]
+  CarrierId;
+
+  @UI.lineItem: [{ position: 60 }]
+  @UI.identification: [{ position: 60 }]
+  ConnectionId;
+
+  @UI.lineItem: [{ position: 70 }]
+  @UI.identification: [{ position: 70 }]
+  FlightDate;
+
+  @UI.lineItem: [{ position: 80 }]
+  @UI.identification: [{ position: 80 }]
+  FlightPrice;
+
+  @UI.lineItem: [{ position: 90 }]
+  @UI.identification: [{ position: 90 }]
+  CurrencyCode;
+}
